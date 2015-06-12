@@ -1,46 +1,62 @@
+//Import required frameworks
 var http = require("http");
 var url = require("url");
 var fs = require("fs");
 var js2xmlparser = require("js2xmlparser");
+//Read JSON file
 var jsonObj = require("./Source/source.json");
+//Port number constant on which server will start
 const PORT = 9090;
 
+//Create basic http server
 var server = http.createServer(handleRequest);
 
+//Read Students object from JSON
 var students = jsonObj.student;
 
+//Handle function after starting http server
+//This function will handle all incoming requests
 function handleRequest(req, res) {
 	var reqMethod = req.method;
 	var str = '';
 	var resultJSON = '';
+	//Response support variable
 	var txtSupport = false;
 	var xmlSupport = false;
 	var jsonSupport = false;
 	
+	//Proceed only if 'GET' request method
 	if(reqMethod != 'GET') {
 		res.writeHead(500);
 		res.end(reqMethod + " : request method not supported.");
 	}
 	
+	//Read query string parameters
 	var query = url.parse(req.url, true).query;
 	
+	//Check if 'q' parameter is present in query string
 	if(query.q) {
 		str = query.q;
 	}
 	
+	//Filter Student JSON object for searched word (first name based search)
 	var resultArray = students.filter(filterJSON);
 	
+	//Actual filter function
 	function filterJSON(val) {
 		var name = val.fName;
+		//Case insensitive first name match
 		if(name.toUpperCase().indexOf(str.toUpperCase()) != -1) {
 			return val;
 		}
 	}
-	console.log(resultArray);
+	
+	//Sort the result from filter in descending order
 	resultArray.sort(sort_by('score', true, parseInt));
 	
+	//Check the 'Accept' request header to send appropriate response
 	var acceptHeaders = req.headers.accept.split(',');
-	console.log(acceptHeaders);
+	
 	for(var header in acceptHeaders) {
 		if(acceptHeaders[header].toUpperCase().indexOf('text'.toUpperCase()) != -1) {
 			txtSupport = true;
@@ -53,18 +69,20 @@ function handleRequest(req, res) {
 		}
 	}
 	
+	//Send the response according to request 'Accept' header
 	if(jsonSupport) {
-		console.log("JSON Response");
+		//JSON response
 		res.writeHead(200, {"Content-Type": "application/json"});
 		res.end(JSON.stringify(resultArray));
 	} else if(xmlSupport) {
-		console.log("XML Response");
+		//XNL response
 		res.writeHead(200, {"Content-Type": "application/xml"});
-		var xmlData = js2xmlparser("Students", resultArray);
+		var xmlData = js2xmlparser("Students", JSON.stringify(resultArray));
 		res.write(xmlData);
 		res.end();
 	} else {
-		console.log("Plain Response");
+		//PLain response
+		//Generate html table to show response data
 		res.writeHead(200, {"Content-Type": "text/html"});
 		var data = '<html><body><table border="1"><tr><th>Id</th><th>First Name</th><th>Last Name</th><th>Score</th></tr>';
 		
@@ -91,6 +109,7 @@ var sort_by = function(field, reverse, primer){
      } 
 }
 
+//Start basic http server to listen request on port specified by PORT
 server.listen(PORT, function() {
 	console.log("[INFO] Server started on port: " + PORT);
 });
